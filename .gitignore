@@ -1,0 +1,24 @@
+# model weights / checkpoints are never committed (course rule)
+*.pt
+*.pth
+*.bin
+*.safetensors
+*.ckpt
+*.npz
+best/
+latest/
+runs/
+# data and submissions
+*.zip
+prediction.json
+data/
+# python / latex build artefacts
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+report/*.aux
+report/*.log
+report/*.out
+report/*.bbl
+report/*.blg
+report/*.xdv
