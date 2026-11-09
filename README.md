@@ -1,6 +1,6 @@
 # CS781 Capstone: In-House Legal Intelligence System
 
-This is the code for the CS781 (IIT Kanpur, 2026) capstone by **Dhruv Shetty (230370)**.
+This is the code for the CS781 (IIT Kanpur, 2026) capstone by **Dhruv Vivekanand Shetty (230370)**.
 It is a seven-phase legal-NLP pipeline over Indian case law. Every model descends from language models pretrained
 **from scratch** in Phase 1 on the course corpus. No third-party pretrained weights and no external LLM APIs are used.
 

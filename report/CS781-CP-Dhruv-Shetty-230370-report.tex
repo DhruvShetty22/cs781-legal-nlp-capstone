@@ -44,7 +44,7 @@
 \title{CS781 Capstone Project:\\
 In-House Legal Intelligence System}
 \author{
-    Dhruv Shetty \todo{full name as on records, middle name if any}  \\
+    Dhruv Vivekanand Shetty \\
     230370 \\
     {\tt \todo{userid}@iitk.ac.in}\\
     Indian Institute of Technology Kanpur (IIT Kanpur)
@@ -56,13 +56,13 @@ In-House Legal Intelligence System}
 A law firm needs a confidential legal NLP stack that runs without external LLM APIs or third-party pretrained weights. We pretrained four 100--125M-parameter models from scratch on 0.97B tokens of Indian court and statute text with our own 32k BPE tokenizer (decoder-only, encoder--decoder, prefix-LM and sliding-window/GQA) and adapted them to legal NER, rhetorical roles, judgment prediction, statute identification, summarization and prior-case retrieval with self-implemented parameter-efficient methods and distillation into half-depth students. Backbones with bidirectional context (prefix-LM, BART encoder) gave the best official score in four of the five understanding tasks, and LoRMA, training 0.2--0.4\% of the parameters, produced the best submission in Phases~3--7 and came within 0.04 of full fine-tuning in Phase~2. The largest remaining losses come from decision rules rather than representations: a fixed 0.5 threshold halves statute-identification macro-F1 relative to a dev-fitted one, and greedy summaries repeat themselves.
 \end{abstract}
 
-\noindent\textbf{Code:} \url{https://github.com/DhruvShetty22/cs781-legal-nlp-capstone} \todo{confirm the final repository URL after pushing}
+\noindent\textbf{Code:} \url{https://github.com/DhruvShetty22/cs781-legal-nlp-capstone}
 
 % ============================================================
 \section{Competition Result}
 % ============================================================
 \noindent
-\textbf{Codabench username:} d\_230370 \todo{confirm}
+\textbf{Codabench username:} d\_230370
 \hfill
 \textbf{Roll number:} 230370
 \begin{table}[H]
