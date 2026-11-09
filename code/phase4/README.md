@@ -5,7 +5,7 @@ binary outcome (0 / 1) of a long Indian court judgment. All code lives in one pe
 into one Colab notebook per architecture.
 
 > This README describes the code and copies numbers verbatim from the executed notebooks in `run_logs/`. It contains no
-> result analysis; that is left to the student's report.
+> result analysis; that is in the report.
 
 ---
 

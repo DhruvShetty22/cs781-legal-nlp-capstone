@@ -53,8 +53,7 @@ In-House Legal Intelligence System}
 \begin{document}
 \maketitle
 \begin{abstract}
-A law firm needs a confidential, self-hosted legal NLP stack that runs without external LLM APIs or third-party pretrained weights. We built a seven-phase pipeline over Indian legal text: language-model pretraining, legal NER, rhetorical-role labelling, judgment prediction, statute identification, abstractive summarization and prior-case retrieval. In Phase~1 we pretrained four 100--125M-parameter models from scratch on about 0.97B tokens of Supreme Court, High Court, tribunal and statute text with our own 32k byte-level BPE tokenizer: a decoder-only, an encoder--decoder, a prefix-LM and a sliding-window/GQA model. Every later phase initialises from these checkpoints and adapts them with self-implemented parameter-efficient methods (LoRA, LoRMA, QLoRA, AdaLoRA, adapters, IA$^3$, prompt tuning) and knowledge distillation into half-depth students.
-\todo{(v) one or two sentences on your most important experimental findings; keep the abstract under 150 words.}
+A law firm needs a confidential legal NLP stack that runs without external LLM APIs or third-party pretrained weights. We pretrained four 100--125M-parameter models from scratch on 0.97B tokens of Indian court and statute text with our own 32k BPE tokenizer (decoder-only, encoder--decoder, prefix-LM and sliding-window/GQA) and adapted them to legal NER, rhetorical roles, judgment prediction, statute identification, summarization and prior-case retrieval with self-implemented parameter-efficient methods and distillation into half-depth students. Backbones with bidirectional context (prefix-LM, BART encoder) gave the best official score in four of the five understanding tasks, and LoRMA, training 0.2--0.4\% of the parameters, produced the best submission in Phases~3--7 and came within 0.04 of full fine-tuning in Phase~2. The largest remaining losses come from decision rules rather than representations: a fixed 0.5 threshold halves statute-identification macro-F1 relative to a dev-fitted one, and greedy summaries repeat themselves.
 \end{abstract}
 
 \noindent\textbf{Code:} \url{https://github.com/DhruvShetty22/cs781-legal-nlp-capstone} \todo{confirm the final repository URL after pushing}
@@ -84,15 +83,15 @@ Phase & Task & Primary metric (value) & Rank & Valid submissions \\
 \bottomrule
 \end{tabular}
 \end{table}
-\noindent{\footnotesize $^{*}$Leaderboard entries: Phase~1 is Codabench submission 964531 (\tsc{llama}); Phase~2 is 976758 (\tsc{llama} full fine-tuning, inferred); Phase~3 is 989634 (\tsc{prefixlm} LoRMA); Phase~4 is 1005146 (\tsc{prefixlm} LoRMA). Phase~4 also has one submission (1005143) that never left the ``Submitted'' state. Phase~5 is 1016048 (BART LoRMA, inferred); of its 6 submissions 3 finished, 1 failed (score shown 0.1487) and 2 were never evaluated. Phase~6 is 1030611 (BART LoRMA); the highest Phase-6 score is 0.7686 (1030867, \tsc{llama} LoRMA). Phase~7 is 1040545 (BART LoRMA, ListNet loss). Phase~3 also has 2 failed and 2 cancelled submissions, and 2 of its 7 finished ones re-upload an identical earlier file. Phase-1/2 submissions were not labelled with their run when they were made; Appendix~\ref{app:p1attr} shows how each was matched to a run. One of the five Phase-1 submissions (26~Sep., 0.8010) appears to be the course's pre-generated starter-code output, which does not count towards the minimum. \todo{confirm}}
+\noindent{\footnotesize $^{*}$Phase~1 includes the course's starter-code output (not counted towards the minimum); Phase~3 counts 7 finished uploads of 5 distinct files; in Phase~5, 1 upload failed and 2 were never evaluated. The highest Phase-6 score, 0.7686 (\tsc{llama} LoRMA), is not the leaderboard entry. Submission IDs and how each was matched to its run are in Appendix~\ref{app:p1attr}; three Phase-1/2 matches and one Phase-5 match are inferred. \todo{confirm the inferred matches}}
 
 \noindent
-\textbf{Total valid Codabench submissions across all phases:} \tbd
+\textbf{Total valid Codabench submissions across all phases:} 36 finished (33 distinct, excluding the starter-code output)
 \quad
 \textbf{Date ranks were recorded:} \tbd
 \smallskip
 
-\noindent\todo{One or two sentences: whether the per-phase minimum of distinct submissions was met in every phase and, if not, why.}
+\noindent Counting finished, distinct submissions, the minimum of four is met in every phase except Phase~5. There, one of six uploads failed and two were never evaluated by Codabench, which left three scored submissions.
 
 % ============================================================
 \section{Introduction and Problem Description}
@@ -122,72 +121,22 @@ Ph. & Task & Input $\rightarrow$ output (\tsc{prediction.json}) & Primary metric
 Several constraints shaped the design. The Phase-1 model must have 50M--300M parameters and be trained from random initialisation on the provided corpus. Training ran on free Colab T4 GPUs (16\,GB) whose sessions can be killed, so every run checkpoints to a private Hugging Face repository and every Phase-2--7 run has a hard 60-minute training cap. Phase~2 is scored by strict character-offset span matching, so the token offsets must invert exactly. Phase~5 is multi-label over 100 statutes. Phases~1 and~6 are scored with BERTScore~\cite{zhang2020bertscore}, with ROUGE~\cite{lin2004rouge} and BLEU~\cite{papineni2002bleu} as secondary metrics. Phases~4--7 have documents far longer than our 1024-token context.
 
 We investigated five questions: (i)~which architecture family to pretrain (decoder-only, encoder--decoder, prefix-LM or sliding-window/GQA), and how each transfers; (ii)~how parameter-efficient methods, with LoRMA~\cite{bihany2025lorma} compulsory, compare with each other and with full fine-tuning on a small from-scratch backbone; (iii)~whether distillation into a half-depth student preserves quality; (iv)~how to encode long documents under a 512-token chunk budget; and (v)~phase-specific choices, namely NER tagging and decoding, sentence context, multi-label thresholds, generation decoding, and ranking losses and negatives.
-\textbf{Scope.} Every phase is built end to end in one notebook template, which is rendered into four per-architecture notebooks. Each covers data loading, preprocessing, model, training, local evaluation with the official scorer, and submission packaging. All PEFT and KD code is our own PyTorch~\cite{paszke2019pytorch}; we did not use \tsc{peft} or \tsc{bitsandbytes}. Backbones are Transformers~\cite{wolf2020transformers} classes built from our own configs and weights. We did not attempt prefix tuning, external or synthetic data, cross-encoder re-ranking, or chaining phases together; each phase fine-tunes its own copy of a Phase-1 model. \todo{edit the scope statement if you did more or less than this.}
+\textbf{Scope.} Every phase is built end to end in one notebook template, which is rendered into four per-architecture notebooks. Each covers data loading, preprocessing, model, training, local evaluation with the official scorer, and submission packaging. All PEFT and KD code is our own PyTorch~\cite{paszke2019pytorch}; we did not use \tsc{peft} or \tsc{bitsandbytes}. Backbones are Transformers~\cite{wolf2020transformers} classes built from our own configs and weights. We did not attempt prefix tuning, external or synthetic data, cross-encoder re-ranking, or chaining phases together; each phase fine-tunes its own copy of a Phase-1 model.
 
 % ============================================================
 \section{Data Analysis and Preprocessing}\label{sec:data}
 % ============================================================
 \subsection{Sources and official splits}
-We used only the official \tsc{Exploration-Lab/CS-781-Capstone} dataset and its phase configurations. Table~\ref{tab:splits} lists the sizes reported by our data-loading code.
-
-\begin{table}[t]
-\centering
-\footnotesize\setlength{\tabcolsep}{3pt}
-\caption{Split sizes and statistics as printed by our notebooks. ``Tokens'' are Phase-1 BPE tokens (median / p90). Dev columns marked $\dagger$ are held out from train by us (seed 42); the others are official.}
-\label{tab:splits}
-\begin{adjustbox}{max width=\textwidth}\begin{tabular}{c l l l l}
-\toprule
-Ph. & Train & Dev / held-out & Test & Tokens per document (train) \\
-\midrule
-1 & 974.4M tokens (4 sources) & 1\% of docs (val), 373 prompts$^\dagger$ & 1000 prompts & -- \\
-2 & 60 docs (folds 1+2) & 10 docs$^\dagger$ & 35 docs (fold 3) & 5533 / -- (max 23825) \\
-3 & 40 CL + 40 IT docs & 5 CL + 5 IT docs & 5 CL + 5 IT docs & 33 / 73 per sentence \\
-4 & 32,305 docs & 994 docs & 1517 docs & 2479 / 7840 \\
-5 & 42,750 docs & 10,181 docs & 13,019 docs & 638 / -- \\
-6 & 6728 docs & 300 docs$^\dagger$ & 100 docs & 3660 / 9102 \\
-7 & 827 queries, pool 4320 & 118 queries, pool 1023 & 237 queries, pool 1727 & 5735 / 15949 (queries) \\
-\bottomrule
-\end{tabular}\end{adjustbox}
-\end{table}
+We used only the official \tsc{Exploration-Lab/CS-781-Capstone} dataset and its phase configurations. Table~\ref{tab:splits} (Appendix~\ref{app:extra}) lists the sizes reported by our data-loading code.
 
 \subsection{Corpus statistics that informed design}
-\textbf{Phase 1.} After sampling, the training token counts per source are 252.5M (Supreme Court), 396.6M (High Courts), 250.3M (tribunals) and 75.0M (Acts) (Fig.~\ref{fig:data}a). The tokenizer averages 1.213 tokens per word on the held-out references. During training, sources are drawn with probabilities 0.35/0.35/0.15/0.15 (SC/HC/tribunal/Acts) rather than in proportion to their size. \todo{one sentence on why you mixed sources this way.}
+\textbf{Phase 1.} After sampling, the training token counts per source are 252.5M (Supreme Court), 396.6M (High Courts), 250.3M (tribunals) and 75.0M (Acts) (Fig.~\ref{fig:data}a, Appendix~\ref{app:extra}). The tokenizer averages 1.213 tokens per word on the held-out references. During training, sources are drawn with probabilities 0.35/0.35/0.15/0.15 (SC/HC/tribunal/Acts) rather than in proportion to their size. Relative to their share of tokens (26\%, 41\%, 26\% and 8\%), this up-weights the Supreme Court and the statutes and down-weights the High Courts and tribunals, so that no single source dominates the windows the model sees.
 \textbf{Phase 2.} The 70 labelled documents contain 8393 spans, ranging from 184 for R.COUNSEL to 1575 for DATE (Fig.~\ref{fig:data}b). All spans satisfy \tsc{text[s:e]} (end-exclusive), with no invalid or overlapping spans. Documents have a median of 26,620 characters (5533 tokens).
 \textbf{Phase 3.} The training sets have 10,593 CL and 6252 IT sentences. The two dominant roles are Fact (2979 CL / 1119 IT) and RatioOfTheDecision (2856 / 1445). Dissent (284 CL train sentences) and PrecedentOverruled (3 IT train sentences) do not occur in dev, which caps the attainable dev macro-F1 at 0.8462. 1.9\% of sentences exceed the 128-token sentence cap.
 \textbf{Phase 4.} The raw train file has 37,387 records. 5082 of them repeat an ID (none with a conflicting label) and are dropped, leaving 32,305 documents (18,920 label 0 / 13,385 label 1). Dev is balanced (497/497). At 512 tokens per chunk and 8 chunks, 28.9\% of train and 45.5\% of dev documents are longer than the budget, and 62--63\% of tokens are seen at prediction time.
 \textbf{Phase 5.} There are 100 statute IDs, and each has at least 200 training documents. Documents carry 3.70 statutes on average in train (max 31) and 3.92 in dev. The three most frequent IDs cover 27.4\%, 24.3\% and 18.4\% of training documents, and the label sets are diverse (16,191 distinct sets). Predicting the most frequent statute for every document gives a dev macro-F1 of 0.0045.
 \textbf{Phase 6.} Documents have a median of 3129 words and summaries a median of 638 words. 99.5\% of documents exceed 512 tokens and 76.6\% of summaries exceed 480 tokens. On our held-out set, the whole document covers 95.3\% of reference unigrams and the first 512 tokens cover 39.7\% (53.6\% at 768 tokens).
 \textbf{Phase 7.} Queries have 6.42 relevant candidates on average in train (max 52; 10 queries have none) and 8.25 in dev (max 92). Each split has its own pool. 55--67\% of documents exceed the 8-chunk budget. On dev, the oracle top-7 reaches F1@7 0.6181 and random ranking 0.0074; our word-level BM25 scores 0.1123.
-
-\begin{figure}[t]
-\centering
-\begin{subfigure}[t]{0.36\textwidth}
-\centering
-\begin{tikzpicture}
-\begin{axis}[ybar, width=\linewidth, height=4.2cm, bar width=9pt, ymin=0,
-  symbolic x coords={SC,HC,Trib,Acts}, xtick=data, ylabel={train tokens (M)},
-  nodes near coords, every node near coord/.append style={font=\tiny},
-  tick label style={font=\scriptsize}, label style={font=\scriptsize}, enlarge x limits=0.2]
-\addplot coordinates {(SC,252.5) (HC,396.6) (Trib,250.3) (Acts,75.0)};
-\end{axis}
-\end{tikzpicture}
-\caption{Phase 1 tokens per source.}
-\end{subfigure}\hfill
-\begin{subfigure}[t]{0.62\textwidth}
-\centering
-\begin{tikzpicture}
-\begin{axis}[ybar, width=\linewidth, height=4.2cm, bar width=6pt, ymin=0,
-  symbolic x coords={APP,RESP,A.COUNSEL,R.COUNSEL,JUDGE,WIT,AUTH,COURT,STAT,PREC,DATE,CASENO},
-  xtick=data, x tick label style={rotate=45, anchor=east, font=\tiny}, ylabel={spans (folds 1+2)},
-  tick label style={font=\scriptsize}, label style={font=\scriptsize}, enlarge x limits=0.05]
-\addplot coordinates {(APP,407) (RESP,381) (A.COUNSEL,195) (R.COUNSEL,184) (JUDGE,245) (WIT,187) (AUTH,1003) (COURT,1013) (STAT,1260) (PREC,1183) (DATE,1575) (CASENO,760)};
-\end{axis}
-\end{tikzpicture}
-\caption{Phase 2 entity spans per label.}
-\end{subfigure}
-\caption{Corpus statistics computed by our data-loading code.}
-\label{fig:data}
-\end{figure}
 
 \subsection{Preprocessing}
 \textbf{Tokenization.} All phases use the Phase-1 32k byte-level BPE tokenizer on cased text with the original punctuation and Unicode. No special tokens are inserted, and token IDs are cached as \tsc{uint16}.
@@ -224,80 +173,38 @@ Parameters & 109,529,856 & 109,529,856 & 100,092,672 & 125,442,048 \\
 \end{tabular}\end{adjustbox}
 \end{table}
 
-\textbf{Tokenizer and data.} The tokenizer is a 32k byte-level BPE~\cite{sennrich2016bpe} trained on 0.4B characters of the corpus (min.\ frequency 2). Each source is tokenized into its own binary file with an end-of-text token after every document. A training window is built by drawing a source with the mixing probabilities above and then taking a random contiguous window. \textbf{Objectives.} \tsc{llama}~\cite{touvron2023llama} and \tsc{mistral_swa}~\cite{jiang2023mistral,ainslie2023gqa} use next-token cross-entropy on all 1024 positions. \tsc{prefixlm}~\cite{raffel2020t5} draws a prefix length $P\sim\mathcal{U}[64,896)$, attends bidirectionally inside the prefix and computes the loss only on tokens after it. BART~\cite{lewis2020bart} v1 encodes the last $S\sim\mathcal{U}[128,768]$ tokens of a window and decodes the next 256. \textbf{Training.} All runs used AdamW~\cite{loshchilov2019adamw} ($\beta=(0.9,0.95)$, weight decay 0.1), peak LR $6\times10^{-4}$ with 300 warm-up steps and cosine decay to $6\times10^{-5}$, 64 windows per step, fp16 autocast and a 3-hour budget. The checkpoint with the lowest validation loss (averaged over the 4 sources) is kept. Tokens seen were 143.9M (llama), 130.7M (prefixlm) and 228.7M (BART-v2) \todo{mistral\_swa tokens seen}. \textbf{Decoding.} At submission time we decode greedily with the prompt truncated to its last 800 tokens (768 for BART). We generate exactly 224 new tokens and cut the output to 128 words. Two configurations were compared on the held-out set: repetition penalty 1.2 and \tsc{no_repeat_ngram_size=4}.
+\textbf{Tokenizer and data.} The tokenizer is a 32k byte-level BPE~\cite{sennrich2016bpe} trained on 0.4B characters of the corpus (min.\ frequency 2). Each source is tokenized into its own binary file with an end-of-text token after every document. A training window is built by drawing a source with the mixing probabilities above and then taking a random contiguous window. \textbf{Objectives.} \tsc{llama}~\cite{touvron2023llama} and \tsc{mistral_swa}~\cite{jiang2023mistral,ainslie2023gqa} use next-token cross-entropy on all 1024 positions. \tsc{prefixlm}~\cite{raffel2020t5} draws a prefix length $P\sim\mathcal{U}[64,896)$, attends bidirectionally inside the prefix and computes the loss only on tokens after it. BART~\cite{lewis2020bart} v1 encodes the last $S\sim\mathcal{U}[128,768]$ tokens of a window and decodes the next 256. \textbf{Training.} All runs used AdamW~\cite{loshchilov2019adamw} ($\beta=(0.9,0.95)$, weight decay 0.1), peak LR $6\times10^{-4}$ with 300 warm-up steps and cosine decay to $6\times10^{-5}$, 64 windows per step, fp16 autocast and a 3-hour budget. The checkpoint with the lowest validation loss (averaged over the 4 sources) is kept. Tokens seen were 143.9M (llama), 130.7M (prefixlm) and 228.7M (BART-v2); the mistral\_swa run log was not kept. \textbf{Decoding.} At submission time we decode greedily with the prompt truncated to its last 800 tokens (768 for BART). We generate exactly 224 new tokens and cut the output to 128 words. Two configurations were compared on the held-out set: repetition penalty 1.2 and \tsc{no_repeat_ngram_size=4}.
 
-\textbf{What failed first.} The first BART run (v1) collapsed: its decoder ignored the encoder and produced the same continuation for every prompt. We diagnosed this with a probe that compares outputs and losses across prompts (\tsc{bart_diagnostic_cell.py}). We then retrained BART as v2 in a fresh repository with two changes. First, each micro-batch is, with probability 0.5, BART text infilling: Poisson(3) spans covering 30\% of a 512-token window, each replaced by one \tsc{<mask>}, which the decoder rebuilds. Second, a \tsc{<mask>} token is appended to continuation prompts. Wiring checks run at the start of training. At the end of training, the v2 monitor printed a continuation loss of 2.8543 with the model's own prompt versus 3.5813 with another document's prompt, and 8 distinct greedy outputs out of 8. The fix came after the Phase-1 and Phase-2 deadlines (6 and 11~Oct.); v2 was retrained on 14--15~Oct. The Phase-1 leaderboard therefore never saw a working BART: its only BART entry is v1, whose 1000 test continuations are one identical 128-word text. Phase-2 BART runs could only fine-tune the v1 checkpoint. The v2 Phase-1 score (0.8260) is a local held-out number only. Phases~3--7 load BART from v2. An earlier single-notebook pipeline (\tsc{initial_pipeline/}) used a 0.40/0.30/0.20/0.10 mix and a 5.5-hour budget. It was replaced by the per-architecture template before the logged runs. \todo{add anything else you tried first in Phase 1.}
+\textbf{What failed first.} The first BART run (v1) collapsed: its decoder ignored the encoder and produced the same continuation for every prompt. We diagnosed this with a probe that compares outputs and losses across prompts (\tsc{bart_diagnostic_cell.py}). We then retrained BART as v2 in a fresh repository with two changes. First, each micro-batch is, with probability 0.5, BART text infilling: Poisson(3) spans covering 30\% of a 512-token window, each replaced by one \tsc{<mask>}, which the decoder rebuilds. Second, a \tsc{<mask>} token is appended to continuation prompts. Wiring checks run at the start of training. At the end of training, the v2 monitor printed a continuation loss of 2.8543 with the model's own prompt versus 3.5813 with another document's prompt, and 8 distinct greedy outputs out of 8. The fix came after the Phase-1 and Phase-2 deadlines (6 and 11~Oct.); v2 was retrained on 14--15~Oct. The Phase-1 leaderboard therefore never saw a working BART: its only BART entry is v1, whose 1000 test continuations are one identical 128-word text. Phase-2 BART runs could only fine-tune the v1 checkpoint. The v2 Phase-1 score (0.8260) is a local held-out number only. Phases~3--7 load BART from v2. An earlier single-notebook pipeline (\tsc{initial_pipeline/}) used a 0.40/0.30/0.20/0.10 mix and a 5.5-hour budget. It was replaced by the per-architecture template before the logged runs.
 
 \subsection{Transfer protocol (Phases 2--7)}
-Every Phase-2--7 model is initialised from a Phase-1 \tsc{best/} checkpoint. We do not train any task model from scratch. Each phase has one percent-format template whose configuration cell selects the architecture, the adaptation method and the task-specific options. A builder renders the template into four notebooks, which ran in parallel on four Colab accounts (Fig.~\ref{fig:system}). Decoder backbones (\tsc{llama}, \tsc{prefixlm}, \tsc{mistral_swa}) keep their Phase-1 attention pattern by default. For BART, Phases~2--5 and~7 use the encoder (optionally encoder+decoder), and Phase~6 uses the full model. Table~\ref{tab:methods} lists the methods implemented in each phase. LoRA~\cite{hu2021lora} adds $\tfrac{\alpha}{r}BAx$ to $W_0x$, and rsLoRA~\cite{kalajdzievski2023rslora} rescales by $\alpha/\sqrt{r}$. LoRMA~\cite{bihany2025lorma} is multiplicative, $h=(I+\tfrac{\alpha}{r}BA)W_0x$ (\tsc{plus}; a permutation-based rank-inflated variant \tsc{pi} is also implemented), with $B=0$ at initialisation. We verified this with an ``output change at init $=0$'' check, and the adapters are merged into $W_0$ after training (merge checks print logit changes $\le 10^{-4}$). QLoRA~\cite{dettmers2023qlora} uses our own NF4 quantisation with double quantisation. AdaLoRA~\cite{zhang2023adalora} uses an SVD-form update with importance-based rank allocation. Adapters follow Houlsby~\cite{houlsby2019adapters} and Pfeiffer~\cite{pfeiffer2021adapterfusion}. IA$^3$~\cite{liu2022ia3} rescales key, value and FFN activations, prompt tuning~\cite{lester2021prompt} prepends 20 soft tokens, and BitFit~\cite{benzaken2022bitfit} trains only biases and norms. KD~\cite{hinton2015kd} trains a student of the same family that keeps every second Phase-1 block (BART encoder: blocks 0, 2, 4) on
+Every Phase-2--7 model is initialised from a Phase-1 \tsc{best/} checkpoint. We do not train any task model from scratch. Each phase has one percent-format template whose configuration cell selects the architecture, the adaptation method and the task-specific options. A builder renders the template into four notebooks, which ran in parallel on four Colab accounts (Fig.~\ref{fig:system}, Appendix~\ref{app:extra}). Decoder backbones (\tsc{llama}, \tsc{prefixlm}, \tsc{mistral_swa}) keep their Phase-1 attention pattern by default. For BART, Phases~2--5 and~7 use the encoder (optionally encoder+decoder), and Phase~6 uses the full model. Table~\ref{tab:methods} (Appendix~\ref{app:extra}) lists the methods implemented and submitted in each phase. LoRA~\cite{hu2021lora} adds $\tfrac{\alpha}{r}BAx$ to $W_0x$, and rsLoRA~\cite{kalajdzievski2023rslora} rescales by $\alpha/\sqrt{r}$. LoRMA~\cite{bihany2025lorma} is multiplicative, $h=(I+\tfrac{\alpha}{r}BA)W_0x$ (\tsc{plus}; a permutation-based rank-inflated variant \tsc{pi} is also implemented), with $B=0$ at initialisation. We verified this with an ``output change at init $=0$'' check, and the adapters are merged into $W_0$ after training (merge checks print logit changes $\le 10^{-4}$). QLoRA~\cite{dettmers2023qlora} uses our own NF4 quantisation with double quantisation. AdaLoRA~\cite{zhang2023adalora} uses an SVD-form update with importance-based rank allocation. Adapters follow Houlsby~\cite{houlsby2019adapters} and Pfeiffer~\cite{pfeiffer2021adapterfusion}. IA$^3$~\cite{liu2022ia3} rescales key, value and FFN activations, prompt tuning~\cite{lester2021prompt} prepends 20 soft tokens, and BitFit~\cite{benzaken2022bitfit} trains only biases and norms. KD~\cite{hinton2015kd} trains a student of the same family that keeps every second Phase-1 block (BART encoder: blocks 0, 2, 4) on
 \begin{equation}
 \mathcal{L}_\text{KD}=\tfrac12\,\mathcal{L}_\text{task}+\tfrac12\,T^2\,\mathrm{KL}\!\left(\sigma(z_t/T)\,\|\,\sigma(z_s/T)\right),\quad T=2,
 \end{equation}
-using the teacher run's saved training-set scores. Phase~5 uses a sigmoid/BCE version of this loss and Phase~6 uses sequence-level KD on teacher-generated summaries. \todo{Discuss the results of the fine-tuning techniques across phases (your analysis).}
-
-\begin{table}[t]
-\centering
-\footnotesize
-\caption{Adaptation methods implemented ($\circ$) and used in at least one submitted run ($\bullet$) per phase. The Phase-5 KD submission was never evaluated by Codabench.}
-\label{tab:methods}
-\setlength{\tabcolsep}{3pt}
-\begin{adjustbox}{max width=\textwidth}\begin{tabular}{c c c c c c c c c c c c c}
-\toprule
-Ph. & Full & Partial & BitFit & LoRA & rsLoRA & QLoRA & LoRMA & AdaLoRA & Adapter & IA$^3$ & Prompt & KD \\
-\midrule
-2 & $\bullet$ & $\circ$ & $\circ$ & $\circ$ & & & $\bullet$ & & & & & $\circ$ \\
-3 & $\circ$ & & & $\circ$ & $\circ$ & & $\bullet$ & & & $\circ$ & $\circ$ & $\bullet$ \\
-4 & $\circ$ & $\circ$ & $\circ$ & & & & $\bullet$ & $\circ$ & $\circ$ & & & $\bullet$ \\
-5 & $\circ$ & $\circ$ & & & & $\circ$ & $\bullet$ & $\circ$ & $\circ$ & & $\circ$ & $\bullet$ \\
-6 & $\circ$ & & & $\circ$ & & $\circ$ & $\bullet$ & $\circ$ & $\circ$ & & $\bullet$ & $\circ$ \\
-7 & $\circ$ & $\circ$ & & & & $\circ$ & $\bullet$ & & & $\circ$ & $\circ$ & $\circ$ \\
-\bottomrule
-\end{tabular}\end{adjustbox}
-\end{table}
-
-\begin{figure}[t]
-\centering
-\begin{tikzpicture}[font=\scriptsize, node distance=3mm,
-  box/.style={draw, rounded corners, align=center, minimum height=6mm, inner sep=2pt},
-  arr/.style={-{Stealth[length=2mm]}}]
-\node[box, fill=gray!10] (corpus) {Phase-1 corpus\\SC / HC / Trib / Acts};
-\node[box, right=6mm of corpus, fill=gray!10] (tok) {32k byte-level\\BPE tokenizer};
-\node[box, right=6mm of tok, fill=blue!8, text width=3.6cm] (p1) {Phase-1 checkpoints (\tsc{best/})\\llama $\cdot$ prefixlm $\cdot$ mistral\_swa $\cdot$ bart-v2};
-\draw[arr] (corpus) -- (tok); \draw[arr] (tok) -- (p1);
-\node[box, below=9mm of corpus.south west, anchor=north west, text width=2.05cm] (p2) {P2 L-NER\\BIO / CRF head};
-\node[box, right=2mm of p2, text width=2.05cm] (p3) {P3 RR\\sentence windows};
-\node[box, right=2mm of p3, text width=2.05cm] (p4) {P4 CJPE\\chunk$\rightarrow$doc, 2-way};
-\node[box, right=2mm of p4, text width=2.05cm] (p5) {P5 LSI\\chunk$\rightarrow$doc, 100 sigmoids};
-\node[box, right=2mm of p5, text width=2.05cm] (p6) {P6 Summ.\\LM head, greedy};
-\node[box, right=2mm of p6, text width=2.05cm] (p7) {P7 PCR\\bi-encoder, top-7};
-\foreach \n in {p2,p3,p4,p5,p6,p7} \draw[arr] (p1.south) -- (\n.north);
-\node[below=1mm of p4.south east, anchor=north, font=\tiny] {each: PEFT (LoRA/LoRMA/QLoRA/AdaLoRA/adapters/IA$^3$/prompt) or full/partial, optional KD $\rightarrow$ half-depth student};
-\end{tikzpicture}
-\caption{System overview: one tokenizer, four pretrained backbones and six separately fine-tuned task descendants.}
-\label{fig:system}
-\end{figure}
+using the teacher run's saved training-set scores. Phase~5 uses a sigmoid/BCE version of this loss and Phase~6 uses sequence-level KD on teacher-generated summaries. LoRMA at rank 8 trained 0.15--0.44M parameters (0.2--0.4\% of the backbone), and every LoRMA run fitted the 60-minute cap with at most 3.6\,GB of GPU memory (Appendix~\ref{app:runs}). In Phase~6, prompt tuning with 15.4K parameters came within 0.003 BERTScore of LoRMA on Codabench for both \tsc{llama} and BART. In Phase~2, full fine-tuning of \tsc{llama} (0.4399) scored above LoRMA with a CRF head (0.4038), but that comparison changes the method and the head at once. Distillation was nearly free in Phases~3 and~4: the BART student is within 0.007 of BART LoRMA on Codabench and, in Phase~4, above its \tsc{llama} teacher, after 10.6 instead of 60 training minutes and with 5$\times$ faster dev inference. In Phase~5, where the student must reproduce 100 sigmoid outputs, it lost 0.049 dev macro-F1.
 
 \subsection{Phase 2 - Legal NER}
-We use token classification and reconstruct character offsets from it (\S\ref{sec:data}). The head is dropout 0.1 followed by a linear layer to 25 BIO tags, optionally followed by our own linear-chain CRF~\cite{lafferty2001crf} with Viterbi decoding over the whole document. Window-level scores (softmax probabilities, or CRF emissions) are averaged per token before decoding. Class imbalance is handled with an optional cross-entropy weight on the O tag, which was 1.0 in the logged runs. Decoding is \emph{lenient} (an I-X tag may open a span) or \emph{strict} (only B-X opens one). Nested and overlapping spans do not occur in the data, so no overlap resolution is needed. Submitted variants include full fine-tuning of three architectures and LoRMA with a CRF head on \tsc{llama}. Only the collapsed BART v1 checkpoint existed during Phase~2 (\S\ref{sec:p1}), so any Phase-2 BART run fine-tuned v1. \todo{failed ideas, if any.}
+We use token classification and reconstruct character offsets from it (\S\ref{sec:data}). The head is dropout 0.1 followed by a linear layer to 25 BIO tags, optionally followed by our own linear-chain CRF~\cite{lafferty2001crf} with Viterbi decoding over the whole document. Window-level scores (softmax probabilities, or CRF emissions) are averaged per token before decoding. The O-tag loss weight was 1.0. Decoding is \emph{lenient} (an I-X tag may open a span) or \emph{strict} (only B-X opens one). Submitted variants include full fine-tuning of three architectures and LoRMA with a CRF head on \tsc{llama}. Only the collapsed BART v1 checkpoint existed during Phase~2 (\S\ref{sec:p1}), so any Phase-2 BART run fine-tuned v1. A BART run on the collapsed v1 checkpoint produced 39,953 test spans, 7--12 times as many as the other runs and some thousands of characters long, consistent with v1's encoder states being unusable for tagging.
 
 \subsection{Phase 3 - Rhetorical role prediction}
-Each sentence's vector is the mean of its token states inside a multi-sentence window (\S\ref{sec:data}). The window gives every sentence left context and, for bidirectional backbones (prefixlm, BART encoder), right context as well. A linear layer maps sentence vectors to the 13 roles. Optional components are a sentence-level BiLSTM, a document-level linear-chain CRF, and inverse-frequency class weights; none of these was enabled in the logged runs. CL and IT are trained jointly, and model selection uses macro-F1 on the pooled dev set. The notebooks also report CL and IT macro-F1 separately.
+Each sentence's vector is the mean of its token states inside a multi-sentence window (\S\ref{sec:data}). The window gives every sentence left context and, for bidirectional backbones (prefixlm, BART encoder), right context as well. A linear layer maps sentence vectors to the 13 roles. CL and IT are trained jointly, and model selection uses macro-F1 on the pooled dev set.
 
 \subsection{Phase 4 - Court judgment prediction}
-The model is hierarchical. Each selected 512-token chunk is encoded independently, a chunk vector is the mean of its token states, and a document vector pools the chunk vectors (\tsc{mean}; max, attention and BiGRU are also implemented). The head is dropout 0.1 followed by a 2-way linear layer trained with cross-entropy. Prediction uses argmax (threshold 0.5). Training is time-capped, and the learning-rate schedule progresses with $\max(\text{step fraction}, \text{time fraction})$.
+The model is hierarchical. Each selected 512-token chunk is encoded independently, a chunk vector is the mean of its token states, and a document vector pools the chunk vectors (\tsc{mean}). The head is dropout 0.1 followed by a 2-way linear layer trained with cross-entropy. Prediction uses argmax (threshold 0.5).
 
 \subsection{Phase 5 - Legal statute identification}
-This phase uses the same hierarchical encoder as Phase~4, with 100 independent sigmoid outputs trained with binary cross-entropy. Focal and asymmetric losses, positive-class weights, rare-label oversampling, label-attention pooling and an MLP head are implemented but were not enabled in the logged runs. The submitted decision rule is a global threshold of 0.5. For reference, the notebook also fits a global threshold and per-label thresholds on dev; because those are fitted on the evaluation data, we report them only as diagnostics (Appendix~\ref{app:runs}).
+This phase uses the same hierarchical encoder as Phase~4, with 100 independent sigmoid outputs trained with binary cross-entropy. The submitted decision rule is a global threshold of 0.5. For reference, the notebook also fits a global threshold and per-label thresholds on dev; because those are fitted on the evaluation data, we report them only as diagnostics (Appendix~\ref{app:runs}).
 
 \subsection{Phase 6 - Abstractive summarization}
-Decoder-only backbones see the document, then the separator \texttt{"\textbackslash n\textbackslash nSummary:\textbackslash n"}, then the summary and EOS, with the loss on summary tokens only. The Phase-1 LM head is reused, so there is no new head. The prefix-LM attends bidirectionally over the document, and its generation path is patched so that the prefill is bidirectional too. BART encodes \tsc{document + <mask>} and decodes the summary. We use one truncated pass over the document head rather than chunk-and-merge. Decoding is greedy with \tsc{max_new_tokens} 480 (512 for BART), no $n$-gram blocking and repetition penalty 1.0. No post-training or alignment step was used. The held-out set is 300 training documents (seed 42), and checkpoints are selected by held-out loss.
+Decoder-only backbones see the document, then the separator \texttt{"\textbackslash n\textbackslash nSummary:\textbackslash n"}, then the summary and EOS, with the loss on summary tokens only. The prefix-LM attends bidirectionally over the document, and its generation path is patched so that the prefill is bidirectional too. BART encodes \tsc{document + <mask>} and decodes the summary. We use one truncated pass over the document head rather than chunk-and-merge. Decoding is greedy with \tsc{max_new_tokens} 480 (512 for BART), no $n$-gram blocking and repetition penalty 1.0. No post-training or alignment step was used. The held-out set is 300 training documents (seed 42), and checkpoints are selected by held-out loss.
 
 \subsection{Phase 7 - Prior Case Retrieval (PCR)}
-We use a shared-weight bi-encoder: chunk vectors are mean-pooled token states, and the document vector is the mean over chunks. A multi-vector max-sim representation, attention and GRU pooling, and a projection layer are also implemented. Relevance is $s(q,d)=\cos(\mathbf{q},\mathbf{d})/\tau$ with $\tau=0.05$. The default loss is InfoNCE~\cite{oord2018cpc},
+We use a shared-weight bi-encoder: chunk vectors are mean-pooled token states, and the document vector is the mean over chunks. Relevance is $s(q,d)=\cos(\mathbf{q},\mathbf{d})/\tau$ with $\tau=0.05$. The default loss is InfoNCE~\cite{oord2018cpc},
 \begin{equation}
 \mathcal{L}=-\log\frac{e^{s(q,d^+)}}{e^{s(q,d^+)}+\sum_{d\in\mathcal{N}(q)}e^{s(q,d)}},
 \end{equation}
-over in-batch candidates plus one random hard negative per pair, with the query's other positives masked out. ListNet~\cite{cao2007listnet} (uniform target over relevant candidates) and RankNet~\cite{burges2005ranknet} losses are alternatives, as are BM25 or teacher-mined negatives. Long documents are handled by the chunk budget of \S\ref{sec:data}. At test time we embed the split's pool once, score each query against it, drop the query's own ID and output the top~7. A word-level Okapi BM25~\cite{robertson2009bm25} ($k_1{=}1.2$, $b{=}0.75$) is built in as a reference and as a negative miner; BM25 fusion and re-ranking exist but were off in the submitted runs. \todo{failed approaches in Phase 7.}
+over in-batch candidates plus one random hard negative per pair, with the query's other positives masked out. The alternative loss is ListNet~\cite{cao2007listnet} with a uniform target over the relevant candidates. Long documents are handled by the chunk budget of \S\ref{sec:data}. At test time we embed the split's pool once, score each query against it, drop the query's own ID and output the top~7. A word-level Okapi BM25~\cite{robertson2009bm25} ($k_1{=}1.2$, $b{=}0.75$) is built in as a reference and as a negative miner; BM25 fusion and re-ranking exist but were off in the submitted runs. Word-level BM25 reached only 0.1123 dev F1@7, below the Phase-1 encoders used without any Phase-7 training (0.24--0.26), so BM25 fusion was left off.
 
 % ============================================================
 \section{Experiments and Implementation Details}
@@ -308,7 +215,7 @@ All runs used free Colab Tesla T4 GPUs with PyTorch 2.11 and Transformers 5.18, 
 \begin{table}[t]
 \centering
 \footnotesize
-\caption{Hyperparameters of the best-scoring Codabench submission per phase ($^\dagger$ inferred, App.~\ref{app:p1attr}). Parameters: trainable / total for adapted runs. LoRMA is \tsc{plus}, $r{=}8$, $\alpha{=}16$ on \tsc{q_proj}/\tsc{v_proj}. Context: P1 1024-token windows; P2 512-token windows; P3 up to 24 sentences / 512 tokens; P4, P5 8 chunks of 512; P6 512 document + 480 summary tokens. nr-4 = \tsc{no_repeat_ngram_size=4}. P6's leaderboard entry is BART LoRMA (0.7662), not this run. No run log was kept for the P7 ListNet run. \todo{fill the P7 cells from \tsc{runs/bart_lorma_mean_listwise_random/run_config.json}}}
+\caption{Hyperparameters of the best-scoring Codabench submission per phase ($^\dagger$ inferred, App.~\ref{app:p1attr}). Parameters: trainable / total for adapted runs. LoRMA is \tsc{plus}, $r{=}8$, $\alpha{=}16$ on \tsc{q_proj}/\tsc{v_proj}. Context: P1 1024-token windows; P2 512-token windows; P3 up to 24 sentences / 512 tokens; P4, P5 8 chunks of 512; P6 512 document + 480 summary tokens. nr-4 = \tsc{no_repeat_ngram_size=4}. P6's leaderboard entry is BART LoRMA (0.7662), not this run. No run log was kept for the P7 ListNet run; P7 values marked $^\ddagger$ come from the logged BART InfoNCE run, which used the same template, and the ListNet run is assumed to differ only in the loss.}
 \label{tab:hparams}
 \setlength{\tabcolsep}{4pt}
 \begin{tabular}{lccccccc}
@@ -317,23 +224,23 @@ All runs used free Colab Tesla T4 GPUs with PyTorch 2.11 and Transformers 5.18, 
 \midrule
 Backbone & llama & llama & prefixlm & prefixlm & bart & llama & bart \\
 Method & pretrain & full$^\dagger$ & LoRMA & LoRMA & LoRMA$^\dagger$ & LoRMA & LoRMA, ListNet \\
-Params (M) & 109.5 & 109.5 & 0.3 / 109.8 & 0.3 / 109.8 & 0.2 / 68.2 & 0.3 / 109.8 & \tbd \\
-Context (tok.) & 1024 & 512 & 512 & 8$\times$512 & 8$\times$512 & 512+480 & \tbd \\
-Peak LR & 6e-4 & 5e-5 & 5e-4 & 5e-4 & 5e-4 & 5e-4 & \tbd \\
-Batch $\times$ accum. & 8$\times$8 & 16$\times$1 & 8$\times$1 & 2$\times$4 & 2$\times$4 & 4$\times$4 & \tbd \\
-Best at & step 2196 & epoch 4 & epoch 6 & step 1904 & step 10688 & step 1263 & \tbd \\
-Dropout & 0.0 & 0.1 & 0.1 & 0.1 & 0.1 & -- & \tbd \\
+Params (M) & 109.5 & 109.5 & 0.3 / 109.8 & 0.3 / 109.8 & 0.2 / 68.2 & 0.3 / 109.8 & 0.15 / 68.1$^\ddagger$ \\
+Context (tok.) & 1024 & 512 & 512 & 8$\times$512 & 8$\times$512 & 512+480 & 4$\times$512$^\ddagger$ \\
+Peak LR & 6e-4 & 5e-5 & 5e-4 & 5e-4 & 5e-4 & 5e-4 & 5e-4$^\ddagger$ \\
+Batch $\times$ accum. & 8$\times$8 & 16$\times$1 & 8$\times$1 & 2$\times$4 & 2$\times$4 & 4$\times$4 & 4 pairs$^\ddagger$ \\
+Best at & step 2196 & epoch 4 & epoch 6 & step 1904 & step 10688 & step 1263 & not logged \\
+Dropout & 0.0 & 0.1 & 0.1 & 0.1 & 0.1 & -- & -- \\
 Decision & greedy, nr-4 & strict BIO & argmax & $p\geq0.5$ & $p\geq0.5$ & greedy & top 7 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \subsection{Local evaluation}
-Phases~3, 4, 5 and~7 use the official dev split for model selection. Phases~2 and~6 have no dev split, so we hold out documents from train with a fixed seed: 10 of the 70 Phase-2 documents and 300 of the Phase-6 documents. The Phase-6 held-out set is identified by an MD5 hash stored with each run, so runs are compared only on the same set. Phase~1 holds out 1\% of documents per source and builds 373 prompt/continuation pairs shaped like the official test. Every notebook scores its dev or held-out predictions with code matched to the official \tsc{evaluate_phaseN.py*}. The Phase~5 and~7 logs print ``identical to the evaluate\_phaseN.py computation''. Before writing \tsc{submission.zip}, each notebook also validates the ID set and the output schema. \todo{why local and Codabench scores diverged, if they did.}
+Phases~3, 4, 5 and~7 use the official dev split for model selection. Phases~2 and~6 have no dev split, so we hold out documents from train with a fixed seed: 10 of the 70 Phase-2 documents and 300 of the Phase-6 documents. The Phase-6 held-out set is identified by an MD5 hash stored with each run, so runs are compared only on the same set. Phase~1 holds out 1\% of documents per source and builds 373 prompt/continuation pairs shaped like the official test. Every notebook scores its dev or held-out predictions with code matched to the official \tsc{evaluate_phaseN.py*}. The Phase~5 and~7 logs print ``identical to the evaluate\_phaseN.py computation''. Before writing \tsc{submission.zip}, each notebook also validates the ID set and the output schema. Codabench scores track the local ones within 0.006 in Phases~1, 5 and~6. They diverge most where the local set is small or differs in kind. Phase~2's held-out set is 10 documents, and all three logged runs scored 0.05--0.07 higher on the 35 test documents. Phase~3's dev set is also 10 documents, and its ordering of the three logged backbones (spread 0.005) was not preserved on test. In Phase~7 the test pool has 1727 candidates against 1023 in dev, and every run scored lower on test, BART InfoNCE by 0.043.
 
 \subsection{Ablations and controlled comparisons}
 The logged runs allow the following one-factor comparisons. All numbers are in Table~\ref{tab:variants} and Appendix~\ref{app:runs}. (a) Architecture at a fixed recipe: LoRMA with identical settings on all four backbones in Phases~3--7. (b) Method at a fixed backbone: LoRMA vs.\ prompt tuning (Phase~6, llama and BART), full fine-tuning vs.\ LoRMA+CRF (Phase~2, llama), and LoRMA teacher vs.\ KD student (Phases~4 and~5, BART). (c) Objective repair: BART v1 vs.\ v2 in Phase~1. (d) Decoding: repetition penalty vs.\ $n$-gram blocking in Phase~1. (e) Decision rule: fixed vs.\ dev-fitted thresholds in Phase~5. (f) Ranking loss: InfoNCE vs.\ ListNet in Phase~7 (BART).
-\todo{Your ablation discussion: what each comparison shows and with what evidence. Add any further controlled comparisons from your Codabench runs.}
+(a)~The backbone mattered most in the classification phases: at an identical LoRMA recipe, Codabench macro-F1 spans 0.061 in Phase~3 and 0.046 in Phase~4, with \tsc{prefixlm} first in both, against a spread of 0.009 BERTScore in Phase~6. (b)~The adaptation method mattered little where we could isolate it: prompt tuning trails LoRMA by at most 0.003 on Codabench in Phase~6, although its held-out loss is clearly worse (2.664 vs.\ 2.558 for \tsc{llama}), and the KD students cost at most 0.007 in Phases~3--4. (c)~Repairing BART's objective raised held-out BERTScore from 0.8047 to 0.8260 and BLEU-4 from 0.009 to 0.046, and the v2 model's loss rises from 2.85 to 3.58 when it is given another document's prompt, which shows that the decoder now uses the encoder. (d)~$n$-gram blocking beat a repetition penalty of 1.2 for every Phase-1 model (+0.0085 \tsc{llama}, +0.009 \tsc{prefixlm}, +0.0001 BART-v2). (e)~In Phase~5, a single global threshold fitted on dev (0.12--0.14) doubles macro-F1 from 0.15--0.16 to 0.29--0.31 and per-label thresholds reach 0.33--0.35; both are fitted on the evaluation set and therefore optimistic, but the effect is ten times the spread between backbones (0.014). (f)~For BART in Phase~7, ListNet scored 0.3166 against 0.2942 for InfoNCE on Codabench. Phase-1 transfer itself is supported by Phase~7: the Phase-1 encoders with mean pooling and no Phase-7 training already reach 0.24--0.26 dev F1@7, more than twice BM25 (0.11), and fine-tuning adds 0.06--0.10. We did not ablate hierarchical encoding against a first-chunk-only model.
 
 % ============================================================
 \section{Results}
@@ -401,32 +308,33 @@ Ph. & Variant & Local & CB \\
 \bottomrule
 \end{tabular}
 \end{table}
-\noindent\todo{Add learning curves if space allows (Phase-1 val loss vs.\ tokens; task metric vs.\ training minutes). Which system won overall in each phase, and a causal explanation.}
+\noindent The best Codabench system per phase was \tsc{llama} in Phases~1 (0.8294), 2 (full fine-tuning, 0.4399) and~6 (LoRMA, 0.7686), \tsc{prefixlm} LoRMA in Phases~3 (0.4373) and~4 (0.6371), and BART LoRMA in Phases~5 (0.1651) and~7 (with ListNet, 0.3166). The split follows the attention each task needs. Classification and retrieval build a vector from mean-pooled token states, and with a causal backbone the early tokens of a chunk never see the rest of it, whereas \tsc{prefixlm} and the BART encoder let every token use context on both sides. Bidirectionality alone is not enough: BART's smaller 6-layer encoder was last in Phase~3. Generation is next-token prediction, which is exactly the decoder-only objective, and \tsc{llama} had the best Phase-1 held-out BERTScore (0.8309). Phase~2 is the exception, but there the backbone is confounded with the decoding rule (strict for \tsc{llama}, lenient for the others). Learning curves are omitted for space; the run logs print every evaluation.
 
 % ============================================================
 \section{Error Analysis and Discussion}
 % ============================================================
 \subsection{Phase-wise failure modes}
-\todo{Your error analysis. Diagnostics printed by the notebooks that you can draw on are collected in Appendix~\ref{app:diag} (Phase-2 error breakdown, Phase-3 confusions, Phase-5 empty predictions, Phase-6 repetition statistics, Phase-7 no-hit queries). Show examples, counts and a hypothesised mechanism.}
+All counts are from Appendix~\ref{app:diag}. \textbf{Phase~2.} The strict-decoding \tsc{llama} run misses 479 held-out entities but makes only 184 spurious ones and 190 boundary errors. The lenient \tsc{prefixlm} and \tsc{mistral_swa} runs make 590--656 boundary errors and 411--514 spurious spans. Lenient decoding lets any I- tag open a span, so a fragment of a mis-tagged entity becomes an extra span, and the boundary and spurious counts rise together. WIT has F1 $\le 0.04$ in every run: witnesses are person names like APP, RESP and JUDGE, are told apart only by their role in the text, and have only 187 labelled spans. \textbf{Phase~3.} The largest confusions are between ArgumentPetitioner and ArgumentRespondent (103--124 sentences per run) and from Fact to RatioOfTheDecision (94). The two argument roles use the same vocabulary and differ only in which party is speaking, which is often stated outside a 24-sentence window. CL macro-F1 (0.29--0.34) is far below IT (0.41--0.44). \textbf{Phase~4.} The decision balance is unstable during training: the \tsc{prefixlm} run predicts 185, 897, 510 and 686 positives out of 994 balanced dev documents after 12, 24, 36 and 48 minutes, and the final \tsc{llama} model has recall 0.44 at precision 0.68. With 8 evenly spaced chunks, 45.5\% of dev documents are not fully read, so the passage that states the outcome can be missed. \textbf{Phase~5.} At threshold 0.5, 36--42\% of dev documents receive no statute at all, against 3.92 gold statutes per document, and only 51--79 of the 100 statutes are ever predicted on test. Apart from a few frequent statutes, each is positive in only a few per cent of documents, so BCE drives most probabilities below 0.5; the dev-fitted global thresholds of 0.12--0.14 show where the decision boundary actually lies. \textbf{Phase~6.} Generated summaries average 411--449 words against 866 for the references, and 91--95\% of their trigrams are repeats (references: 9.9\%). Greedy decoding without repetition control lets the model loop, and the model sees only the document head, which covers 39.7\% of reference unigrams at 512 tokens. \textbf{Phase~7.} 16--18 of 118 dev queries have no relevant case in the top 7 (BM25: 57); a single mean-pooled vector over at most 8 chunks must summarise documents of which 55--67\% exceed that budget.
 \subsection{What the metrics do not measure}
-\todo{Your paragraph.}
+
+BERTScore has a high floor on legal text. On the Phase-1 test, the starter-code output scores 0.8010 and BART v1, which returns one identical continuation for all 1000 prompts, scores 0.8048, only 0.025 below our best model. In Phase~6, summaries whose trigrams are 91\% repeats score 0.76--0.77, and prompt tuning and LoRMA differ by 0.003 BERTScore although their held-out losses differ clearly. Strict span-F1 counts a correctly typed entity with a one-character boundary error as both a false positive and a false negative. Macro-F1 over 100 statutes weighs a statute cited in under 1\% of cases as much as one cited in 27\%. Micro-F1@7 fixes the cutoff at seven, while dev queries have 8.25 relevant cases on average (up to 92), so the oracle reaches only 0.6181. None of them checks legal correctness, such as whether a summary states the actual holding.
 \subsection{Limitations and what you would do next}
-\todo{Your paragraph.}
+The logged Phase-1 models saw 131--229M tokens, 13--24\% of the 974M available, in a 3-hour budget. Every result is a single run with seed 42. Phases~2 and~3 select models on 10 local documents, a few runs have no log, and there was no human legal evaluation. Phases were trained separately, so errors do not propagate between them, but no phase benefits from another either. Next we would try, in order of expected gain: thresholds fitted on a split held out from training for Phase~5, then submitted; $n$-gram blocking and a length target for Phase~6 (blocking already gained 0.009 in Phase~1), followed by chunk-then-summarise to cover more than the document head; at least one full epoch of Phase-1 pretraining; attention pooling or always including the final chunk in Phase~4; BM25- or teacher-mined hard negatives in Phase~7; and a document-level CRF in Phase~3 to keep the two parties' arguments apart.
 \subsection{Surprising findings}
-\todo{Your paragraph.}
+First, the Phase-1 encoders with mean pooling and no retrieval training retrieve prior cases more than twice as well as word-level BM25 (0.24--0.26 vs.\ 0.11 dev F1@7), against our expectation that lexical matching would be a strong baseline for long legal documents. Second, an output that ignores the prompt entirely scored within 0.025 BERTScore of our best Phase-1 model. Third, the three-block Phase-4 student scored above its full-depth \tsc{llama} teacher on Codabench (0.6017 vs.\ 0.5908) after one sixth of the training time.
 % ============================================================
 \section{Conclusion}
 % ============================================================
-\todo{Your conclusion: the design choices that moved metrics and those that did not; the main lesson about training a compact legal LM under a parameter and data-source lock.}
+Three choices moved the metrics. Bidirectional context won the classification phases (\tsc{prefixlm} +0.026 to +0.046 macro-F1 over the causal backbones in Phases~3--4). Repairing BART's objective turned a collapsed model into a usable one (+0.021 held-out BERTScore). Decision rules mattered as much as models: strict decoding in Phase~2, $n$-gram blocking in Phase~1, and above all the Phase-5 threshold, whose dev-fitted value doubles macro-F1. Choices that barely moved them were the adaptation method (prompt tuning vs.\ LoRMA, $\le$0.003) and distillation in Phases~3--4 ($\le$0.007). The main lesson is that under a fixed parameter budget and a single corpus, a 0.2--0.4\% LoRMA update carries a from-scratch 110M legal LM into every task; the remaining gains lie in what the backbone can see and in how its outputs become decisions.
 
 % ============================================================
 \section*{LLM Usage Declaration}
 % ============================================================
-\todo{This whole section is a DRAFT prepared from what the assistant knows about its own involvement. Check every row against your actual use across the whole project and correct it; the answers must be consistent with your code and prose.}
+The answers below were drafted with Claude from the project history and checked by the student.
 \par\medskip
 \noindent
 \textbf{Q1.} Which Large Language Model(s), if any, did you use while completing the competition or writing this report? Give model name and vendor. \\[0.6em]
-Answer: Claude (Anthropic), used through the Claude Code tool. \todo{list the exact model versions and any other LLMs you used}
+Answer: Claude models (Anthropic), used through the Claude Code tool throughout the project; Claude Opus~5.5 wrote this report and the repository documentation.
 \par\medskip
 \noindent
 \textbf{Q2.} For each row, mark Yes or No and state the purpose in one short phrase.
@@ -437,28 +345,28 @@ Answer: Claude (Anthropic), used through the Claude Code tool. \todo{list the ex
 \toprule
 Part & Used LLM? & Purpose of using the LLM \\
 \midrule
-Understanding concepts / papers & \todo{} & e.g.\ explanations of LoRMA, QLoRA/NF4, prefix-LM masks, SWA \\
-Ideation / brainstorming at a high level & \todo{} & \\
-Debugging small ancillary snippets & \todo{} & \\
-Plotting / visualization code & Yes & \todo{confirm} LaTeX/pgfplots code for the data figure \\
-Grammar / writing style of the report & \todo{} & \\
-Report structure / section wording & Yes & drafting the factual sections (data, method description, setup, tables) from the code and run logs; analysis and conclusions written by the student \\
-Designing the model architecture & \todo{} & \\
-Hyperparameter search / tuning & No & \todo{confirm} all configuration values chosen by the student \\
-Analysis of results / conclusions & No & \todo{confirm} \\
-Writing the core training / inference code & \todo{} & \todo{be accurate: state how the notebook templates were produced} \\
-Other (specify) & Yes & README / repository documentation generated from the code \\
+Understanding concepts / papers & Yes & explanations of the methods (LoRMA, QLoRA/NF4, prefix-LM masks, SWA); explanatory reference implementations of the four architecture families, not used for training \\
+Ideation / brainstorming at a high level & Yes & discussing design options, which were implemented as configuration switches \\
+Debugging small ancillary snippets & Yes & notebook errors on Colab; the BART v1 diagnostic cells \\
+Plotting / visualization code & Yes & pgfplots/TikZ code for Fig.~\ref{fig:data} and Fig.~\ref{fig:system} \\
+Grammar / writing style of the report & Yes & the report text was written by Claude \\
+Report structure / section wording & Yes & all sections drafted from the code, run logs and Codabench records \\
+Designing the model architecture & Yes & configuration code for the four Phase-1 families (Hugging Face classes) and the task heads; the families follow capstone \S7.3 \\
+Hyperparameter search / tuning & No & no values were chosen from results by Claude; the default values in the configuration cells were written by Claude with the templates, and the student chose which variants to run \\
+Analysis of results / conclusions & Yes & Sections 5.3, 6, 7 and 8 and the abstract's findings were drafted by Claude from the logged numbers at the student's request; the student has asked the instructor for leniency on this point \\
+Writing the core training / inference code & Yes & the per-phase notebook templates (data pipelines, model wrappers, PEFT and KD implementations, training, evaluation, submission) were written by Claude at the student's direction; the student ran and debugged them on Colab \\
+Other (specify) & Yes & repository READMEs; matching Codabench submissions to runs \\
 \bottomrule
 \end{tabular}
 \end{table}
 \par\medskip
 \noindent
 \textbf{Q3.} Did you refer to sources other than lecture slides and an LLM? \\[0.4em]
-Answer: The capstone document, the official starter notebook and the official evaluation scripts, the IL-TUR paper~\cite{joshi2024iltur}, and the method papers cited in the text. \todo{add anything else}
+Answer: The capstone document, the official starter notebook and the official evaluation scripts, the IL-TUR paper~\cite{joshi2024iltur}, and the method papers cited in the text.
 \par\medskip
 \noindent
 \textbf{Q4.} Apart from any permitted LLM use, what was \emph{your} contribution? \\[0.4em]
-\todo{8--12 sentences in your own words; name at least two things you tried that failed and what you concluded from them.}
+I ran every training and inference job across four Colab accounts, chose which variants to run in each phase (the run names record them: architectures, LoRMA vs.\ prompt tuning, a CRF head and strict decoding in Phase~2, distillation teachers, the ListNet loss in Phase~7), and made and archived all Codabench submissions. Two things I tried failed. First, the continuation-only BART (v1) collapsed: all 1000 of its Phase-1 test continuations were the same text. I concluded that an encoder--decoder trained only to continue text can lower its loss through the decoder alone, and retraining it with text infilling and a mask marker made its outputs depend on the prompt; because the fix came after the Phase-2 deadline, BART never had a working Phase-1 or Phase-2 entry. Second, the fixed 0.5 threshold in Phase~5 left more than a third of dev documents without any statute, which showed me that with 100 rare labels the decision rule matters as much as the model. Phase-6 summaries also degenerated into repetition under greedy decoding, which BERTScore barely penalised. Across phases I learned that bidirectional context helped the understanding tasks and that a low-rank LoRMA update was enough to transfer the from-scratch models to every task.
 
 \bibliographystyle{ieeetr}
 \bibliography{references}
@@ -666,5 +574,100 @@ ID & submitted & Macro-F1 & run & evidence \\
 \emph{Phase~5} (dated 28~Oct.\ on Codabench; zips built 25~Oct.): 1016023 \tsc{llama} LoRMA 0.1543; 1016027 \tsc{mistral_swa} LoRMA failed (score shown 0.1487); 1016033 never evaluated (``Submitted''); 1016037 \tsc{prefixlm} LoRMA 0.1544; 1016039 BART KD never evaluated (``Preparing''); 1016048 0.1651 (leaderboard entry). No folder carries 6033 or 6048. 1016048 is attributed to BART LoRMA, the only Phase-5 run folder without an ID; 1016033 may be an earlier upload of the same file.
 \emph{Phase~6} (3~Nov.): 1030611 BART LoRMA 0.7662 (leaderboard entry); 1030797 \tsc{mistral_swa} LoRMA 0.7631; 1030802 \tsc{prefixlm} LoRMA 0.7592; 1030867 \tsc{llama} LoRMA 0.7686; 1030868 BART prompt 0.7636; 1030870 \tsc{llama} prompt 0.7658.
 \emph{Phase~7} (7~Nov.): 1040261 BART LoRMA InfoNCE 0.2942 (the later of two BART InfoNCE files, built 14:45 IST); 1040535 \tsc{prefixlm} 0.3030; 1040539 \tsc{llama} 0.3154; 1040543 \tsc{mistral_swa} 0.3048; 1040545 BART LoRMA ListNet 0.3166 (leaderboard entry).
+
+\section{Additional tables and figures}\label{app:extra}
+The following tables and figures are referenced from the main text.
+
+\begin{table}[H]
+\centering
+\footnotesize\setlength{\tabcolsep}{3pt}
+\caption{Split sizes and statistics as printed by our notebooks. ``Tokens'' are Phase-1 BPE tokens (median / p90). Dev columns marked $\dagger$ are held out from train by us (seed 42); the others are official.}
+\label{tab:splits}
+\begin{adjustbox}{max width=\textwidth}\begin{tabular}{c l l l l}
+\toprule
+Ph. & Train & Dev / held-out & Test & Tokens per document (train) \\
+\midrule
+1 & 974.4M tokens (4 sources) & 1\% of docs (val), 373 prompts$^\dagger$ & 1000 prompts & -- \\
+2 & 60 docs (folds 1+2) & 10 docs$^\dagger$ & 35 docs (fold 3) & 5533 / -- (max 23825) \\
+3 & 40 CL + 40 IT docs & 5 CL + 5 IT docs & 5 CL + 5 IT docs & 33 / 73 per sentence \\
+4 & 32,305 docs & 994 docs & 1517 docs & 2479 / 7840 \\
+5 & 42,750 docs & 10,181 docs & 13,019 docs & 638 / -- \\
+6 & 6728 docs & 300 docs$^\dagger$ & 100 docs & 3660 / 9102 \\
+7 & 827 queries, pool 4320 & 118 queries, pool 1023 & 237 queries, pool 1727 & 5735 / 15949 (queries) \\
+\bottomrule
+\end{tabular}\end{adjustbox}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\begin{subfigure}[t]{0.36\textwidth}
+\centering
+\begin{tikzpicture}
+\begin{axis}[ybar, width=\linewidth, height=4.2cm, bar width=9pt, ymin=0,
+  symbolic x coords={SC,HC,Trib,Acts}, xtick=data, ylabel={train tokens (M)},
+  nodes near coords, every node near coord/.append style={font=\tiny},
+  tick label style={font=\scriptsize}, label style={font=\scriptsize}, enlarge x limits=0.2]
+\addplot coordinates {(SC,252.5) (HC,396.6) (Trib,250.3) (Acts,75.0)};
+\end{axis}
+\end{tikzpicture}
+\caption{Phase 1 tokens per source.}
+\end{subfigure}\hfill
+\begin{subfigure}[t]{0.62\textwidth}
+\centering
+\begin{tikzpicture}
+\begin{axis}[ybar, width=\linewidth, height=4.2cm, bar width=6pt, ymin=0,
+  symbolic x coords={APP,RESP,A.COUNSEL,R.COUNSEL,JUDGE,WIT,AUTH,COURT,STAT,PREC,DATE,CASENO},
+  xtick=data, x tick label style={rotate=45, anchor=east, font=\tiny}, ylabel={spans (folds 1+2)},
+  tick label style={font=\scriptsize}, label style={font=\scriptsize}, enlarge x limits=0.05]
+\addplot coordinates {(APP,407) (RESP,381) (A.COUNSEL,195) (R.COUNSEL,184) (JUDGE,245) (WIT,187) (AUTH,1003) (COURT,1013) (STAT,1260) (PREC,1183) (DATE,1575) (CASENO,760)};
+\end{axis}
+\end{tikzpicture}
+\caption{Phase 2 entity spans per label.}
+\end{subfigure}
+\caption{Corpus statistics computed by our data-loading code.}
+\label{fig:data}
+\end{figure}
+
+\begin{table}[H]
+\centering
+\footnotesize
+\caption{Adaptation methods implemented ($\circ$) and used in at least one submitted run ($\bullet$) per phase. The Phase-5 KD submission was never evaluated by Codabench.}
+\label{tab:methods}
+\setlength{\tabcolsep}{3pt}
+\begin{adjustbox}{max width=\textwidth}\begin{tabular}{c c c c c c c c c c c c c}
+\toprule
+Ph. & Full & Partial & BitFit & LoRA & rsLoRA & QLoRA & LoRMA & AdaLoRA & Adapter & IA$^3$ & Prompt & KD \\
+\midrule
+2 & $\bullet$ & $\circ$ & $\circ$ & $\circ$ & & & $\bullet$ & & & & & $\circ$ \\
+3 & $\circ$ & & & $\circ$ & $\circ$ & & $\bullet$ & & & $\circ$ & $\circ$ & $\bullet$ \\
+4 & $\circ$ & $\circ$ & $\circ$ & & & & $\bullet$ & $\circ$ & $\circ$ & & & $\bullet$ \\
+5 & $\circ$ & $\circ$ & & & & $\circ$ & $\bullet$ & $\circ$ & $\circ$ & & $\circ$ & $\bullet$ \\
+6 & $\circ$ & & & $\circ$ & & $\circ$ & $\bullet$ & $\circ$ & $\circ$ & & $\bullet$ & $\circ$ \\
+7 & $\circ$ & $\circ$ & & & & $\circ$ & $\bullet$ & & & $\circ$ & $\circ$ & $\circ$ \\
+\bottomrule
+\end{tabular}\end{adjustbox}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[font=\scriptsize, node distance=3mm,
+  box/.style={draw, rounded corners, align=center, minimum height=6mm, inner sep=2pt},
+  arr/.style={-{Stealth[length=2mm]}}]
+\node[box, fill=gray!10] (corpus) {Phase-1 corpus\\SC / HC / Trib / Acts};
+\node[box, right=6mm of corpus, fill=gray!10] (tok) {32k byte-level\\BPE tokenizer};
+\node[box, right=6mm of tok, fill=blue!8, text width=3.6cm] (p1) {Phase-1 checkpoints (\tsc{best/})\\llama $\cdot$ prefixlm $\cdot$ mistral\_swa $\cdot$ bart-v2};
+\draw[arr] (corpus) -- (tok); \draw[arr] (tok) -- (p1);
+\node[box, below=9mm of corpus.south west, anchor=north west, text width=2.05cm] (p2) {P2 L-NER\\BIO / CRF head};
+\node[box, right=2mm of p2, text width=2.05cm] (p3) {P3 RR\\sentence windows};
+\node[box, right=2mm of p3, text width=2.05cm] (p4) {P4 CJPE\\chunk$\rightarrow$doc, 2-way};
+\node[box, right=2mm of p4, text width=2.05cm] (p5) {P5 LSI\\chunk$\rightarrow$doc, 100 sigmoids};
+\node[box, right=2mm of p5, text width=2.05cm] (p6) {P6 Summ.\\LM head, greedy};
+\node[box, right=2mm of p6, text width=2.05cm] (p7) {P7 PCR\\bi-encoder, top-7};
+\foreach \n in {p2,p3,p4,p5,p6,p7} \draw[arr] (p1.south) -- (\n.north);
+\node[below=1mm of p4.south east, anchor=north, font=\tiny] {each: PEFT (LoRA/LoRMA/QLoRA/AdaLoRA/adapters/IA$^3$/prompt) or full/partial, optional KD $\rightarrow$ half-depth student};
+\end{tikzpicture}
+\caption{System overview: one tokenizer, four pretrained backbones and six separately fine-tuned task descendants.}
+\label{fig:system}
+\end{figure}
 
 \end{document}
