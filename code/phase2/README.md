@@ -522,9 +522,9 @@ The local copies of four files were saved 1-2 minutes before an upload (11:24 ->
 
 | Codabench ID | Submitted (IST) | Run | Key settings | Strict Macro-F1 | Attribution |
 |---|---|---|---|---|---|
-| 976438 | 11:28 | llama full, first run | `full`, linear head; `DECODE` not recorded | 0.3957 | inferred. The BART v1 file, built in the same minutes, is the only other candidate. TODO(student): confirm |
+| 976438 | 11:28 | llama full, first run | `full`, linear head; `DECODE` not recorded | 0.3957 | inferred. The BART v1 file, built in the same minutes, is the only other candidate. Confirmed by the student. |
 | 976728 | 13:27 | prefixlm full | `full`, linear head, bidirectional attention, `DECODE = "lenient"` | 0.3893 | local copy saved 13:26 |
-| 976758 | 13:40 | **llama full, strict** (leaderboard entry) | `full`, linear head, causal, `DECODE = "strict"`, LR 5e-5, head LR 1e-3, batch 16, window 512, best epoch 4 | **0.4399** | inferred: 13:40 / 13:44 are the llama-strict and mistral_swa files, ordered by the pattern above. TODO(student): confirm |
+| 976758 | 13:40 | **llama full, strict** (leaderboard entry) | `full`, linear head, causal, `DECODE = "strict"`, LR 5e-5, head LR 1e-3, batch 16, window 512, best epoch 4 | **0.4399** | inferred: 13:40 / 13:44 are the llama-strict and mistral_swa files, ordered by the pattern above. Confirmed by the student. |
 | 976769 | 13:44 | mistral_swa full | `full`, linear head, causal SWA, `DECODE = "lenient"` | 0.3886 | inferred (see above) |
 | 977284 | 16:59 | llama LoRMA + CRF | `lorma`, CRF head; other settings in `<hf-user>/cs781-p2/runs/llama_lorma_crf/run_config.json` | 0.4038 | the only file built after 13:39 before the deadline; local copy saved 16:59 |
 

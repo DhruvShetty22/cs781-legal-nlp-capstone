@@ -28,8 +28,6 @@
     urlcolor=blue
 }
 % ------------------------------------------------------------------
-% DRAFT MARKER: every \todo{...} must be replaced by the student's own
-% text (or removed) before submission.  grep -n 'todo{' to find them.
 % ------------------------------------------------------------------
 \newcommand{\todo}[1]{\textcolor{red}{\textbf{[TODO (student): #1]}}}
 \newcommand{\tbd}{\textcolor{red}{\textbf{??}}}
@@ -46,7 +44,7 @@ In-House Legal Intelligence System}
 \author{
     Dhruv Vivekanand Shetty \\
     230370 \\
-    {\tt \todo{userid}@iitk.ac.in}\\
+    {\tt sdhruv23@iitk.ac.in}\\
     Indian Institute of Technology Kanpur (IIT Kanpur)
 }
 \date{}
@@ -73,22 +71,22 @@ A law firm needs a confidential legal NLP stack that runs without external LLM A
 \toprule
 Phase & Task & Primary metric (value) & Rank & Valid submissions \\
 \midrule
-1 & Legal LM Pretraining & BERTScore F1 = 0.8294$^{*}$ & \tbd & 5$^{*}$ \\
-2 & Legal NER & Strict Macro-F1 = 0.4399$^{*}$ & \tbd & 5 \\
-3 & Rhetorical role prediction & Macro-F1 = 0.4373$^{*}$ & \tbd & 7 (5 distinct)$^{*}$ \\
-4 & Court judgment prediction & Macro-F1 = 0.6371$^{*}$ & \tbd & 5$^{*}$ \\
-5 & Legal statute identification & Macro-F1 = 0.1651$^{*}$ & \tbd & 3$^{*}$ \\
-6 & Abstractive summarization & BERTScore F1 = 0.7662$^{*}$ & \tbd & 6 \\
-7 & Prior Case Retrieval (PCR) & Micro-F1@7 = 0.3166 & \tbd & 5 \\
+1 & Legal LM Pretraining & BERTScore F1 = 0.8294$^{*}$ & 86 & 5$^{*}$ \\
+2 & Legal NER & Strict Macro-F1 = 0.4399$^{*}$ & 95 & 5 \\
+3 & Rhetorical role prediction & Macro-F1 = 0.4373$^{*}$ & 105 & 7 (5 distinct)$^{*}$ \\
+4 & Court judgment prediction & Macro-F1 = 0.6371$^{*}$ & 110 & 5$^{*}$ \\
+5 & Legal statute identification & Macro-F1 = 0.1651$^{*}$ & 132 & 3$^{*}$ \\
+6 & Abstractive summarization & BERTScore F1 = 0.7662$^{*}$ & 130 & 6 \\
+7 & Prior Case Retrieval (PCR) & Micro-F1@7 = 0.3166 & 96 & 5 \\
 \bottomrule
 \end{tabular}
 \end{table}
-\noindent{\footnotesize $^{*}$Phase~1 includes the course's starter-code output (not counted towards the minimum); Phase~3 counts 7 finished uploads of 5 distinct files; in Phase~5, 1 upload failed and 2 were never evaluated. The highest Phase-6 score, 0.7686 (\tsc{llama} LoRMA), is not the leaderboard entry. Submission IDs and how each was matched to its run are in Appendix~\ref{app:p1attr}; three Phase-1/2 matches and one Phase-5 match are inferred. \todo{confirm the inferred matches}}
+\noindent{\footnotesize $^{*}$Phase~1 includes the course's starter-code output (not counted towards the minimum); Phase~3 counts 7 finished uploads of 5 distinct files; in Phase~5, 1 upload failed and 2 were never evaluated. The highest Phase-6 score, 0.7686 (\tsc{llama} LoRMA), is not the leaderboard entry. Submission IDs and how each was matched to its run are in Appendix~\ref{app:p1attr}; three Phase-1/2 matches and one Phase-5 match were inferred from file times and contents and confirmed by the student.}
 
 \noindent
 \textbf{Total valid Codabench submissions across all phases:} 36 finished (33 distinct, excluding the starter-code output)
 \quad
-\textbf{Date ranks were recorded:} \tbd
+\textbf{Date ranks were recorded:} 9 November 2026
 \smallskip
 
 \noindent Counting finished, distinct submissions, the minimum of four is met in every phase except Phase~5. There, one of six uploads failed and two were never evaluated by Codabench, which left three scored submissions.
@@ -505,7 +503,7 @@ prefixlm LoRMA & .3091 / .3366 / .2857 & .7081 & .7085 & 16 & 0.29M / 109.8M & 6
 \textbf{Phase 7} queries with no relevant candidate in the top 7: 18 / 16 / 16 of 118 (llama / bart / prefixlm), against 57 for BM25.
 
 \section{Attribution of the Codabench submissions}\label{app:p1attr}
-The Phase-1 submissions were uploaded as \tsc{submission.zip} without a note of which model produced each. Each was matched afterwards to the zip downloaded from Colab a few minutes before it and to the executed notebooks in \tsc{code/phase1/run_logs/}. Words per prediction (min / mean / max) are counted from the zips and compared with the line \emph{words per prediction} that each notebook prints after generating the test set. All four 6~Oct.\ runs used greedy decoding with \tsc{no_repeat_ngram_size=4}. BART v2 (retrained 14--15~Oct.) was never submitted to Phase~1. \todo{confirm the two inferred rows}
+The Phase-1 submissions were uploaded as \tsc{submission.zip} without a note of which model produced each. Each was matched afterwards to the zip downloaded from Colab a few minutes before it and to the executed notebooks in \tsc{code/phase1/run_logs/}. Words per prediction (min / mean / max) are counted from the zips and compared with the line \emph{words per prediction} that each notebook prints after generating the test set. All four 6~Oct.\ runs used greedy decoding with \tsc{no_repeat_ngram_size=4}. BART v2 (retrained 14--15~Oct.) was never submitted to Phase~1.
 \begin{table}[H]
 \centering
 \scriptsize
@@ -524,7 +522,7 @@ ID & submitted & BERTScore F1 & run & evidence \\
 \end{tabular}
 \end{table}
 
-\textbf{Phase 2.} Six Phase-2 prediction files were built before the deadline: \tsc{llama} full (11:18), BART v1 full (11:23), \tsc{prefixlm} full (12:01), \tsc{llama} full with strict decoding (13:37), \tsc{mistral_swa} full (13:39) and \tsc{llama} LoRMA+CRF (14:07). Each file's span count was compared with the count its notebook prints for the test set. The local copies of four of these files were saved 1--2 minutes before an upload (13:26$\to$13:27, 13:42$\to$13:44, 16:59$\to$16:59, and 11:24$\to$11:28). The order of the 13:40 and 13:44 entries follows this pattern but is not otherwise confirmed. \todo{confirm the inferred rows}
+\textbf{Phase 2.} Six Phase-2 prediction files were built before the deadline: \tsc{llama} full (11:18), BART v1 full (11:23), \tsc{prefixlm} full (12:01), \tsc{llama} full with strict decoding (13:37), \tsc{mistral_swa} full (13:39) and \tsc{llama} LoRMA+CRF (14:07). Each file's span count was compared with the count its notebook prints for the test set. The local copies of four of these files were saved 1--2 minutes before an upload (13:26$\to$13:27, 13:42$\to$13:44, 16:59$\to$16:59, and 11:24$\to$11:28). The order of the 13:40 and 13:44 entries follows this pattern and was confirmed by the student.
 \begin{table}[H]
 \centering
 \scriptsize

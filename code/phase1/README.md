@@ -500,11 +500,11 @@ chosen by the notebook from the held-out comparison).
 
 | Codabench ID | Submitted (IST) | Run | Settings | BERTScore F1 | Evidence for the attribution |
 |---|---|---|---|---|---|
-| 946235 | 2026-09-26 15:08 | starter-code output (inferred; not our model) | course-provided pre-generated output | 0.8010 | The only Phase-1 prediction file on this machine from before 6 Oct is the starter kit's `submission.zip` (downloaded 24 Sep, byte-identical to `Starter Code/submission.zip`). Starter-code predictions do not count toward the minimum. TODO(student): confirm |
+| 946235 | 2026-09-26 15:08 | starter-code output (inferred; not our model) | course-provided pre-generated output | 0.8010 | The only Phase-1 prediction file on this machine from before 6 Oct is the starter kit's `submission.zip` (downloaded 24 Sep, byte-identical to `Starter Code/submission.zip`). Starter-code predictions do not count toward the minimum. Confirmed by the student. |
 | 964531 | 2026-10-06 16:45 | **llama** (leaderboard entry) | step 2196, `greedy_ngram4` | **0.8294** | zip built 16:42; words 78 / 127.6 / 128, as printed in `P1_arch1_llama_after_run.ipynb` |
 | 964554 | 2026-10-06 17:01 | bart **v1** (collapsed) | step 6744, `greedy_ngram4` | 0.8048 | zip built 16:57; all 1000 predictions are one identical 128-word text, which also appears in `P1_arch2_bart_after_run.ipynb` |
 | 964576 | 2026-10-06 17:09 | prefixlm | step 1995, `greedy_ngram4` | 0.8269 | zip built 17:06; words 5 / 127.0 / 128, as printed in `P1_arch3_prefixlm_after_run.ipynb` |
-| 965161 | 2026-10-06 21:32 | mistral_swa (inferred by elimination) | no executed notebook kept | 0.8265 | zip built 21:28; words 63 / 127.3 / 128 match none of the saved logs; its first 8 words equal llama's for 42 / 1000 prompts (prefixlm vs llama: 45 / 1000), so it is not a re-decode of the llama model with the same settings. TODO(student): confirm |
+| 965161 | 2026-10-06 21:32 | mistral_swa (inferred by elimination) | no executed notebook kept | 0.8265 | zip built 21:28; words 63 / 127.3 / 128 match none of the saved logs; its first 8 words equal llama's for 42 / 1000 prompts (prefixlm vs llama: 45 / 1000), so it is not a re-decode of the llama model with the same settings. Confirmed by the student. |
 
 **BART v2 was never submitted in Phase 1.** The v1 collapse was fixed only after the Phase-1 and Phase-2 deadlines
 (v2 template built 2026-10-14, `P1_arch2_bart_v2_after.ipynb` saved 2026-10-15). The Phase-1 leaderboard therefore

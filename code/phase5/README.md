@@ -469,7 +469,7 @@ Codabench entries are dated 2026-10-28 (IST).
 | 1016048 | 19:21 | `submission_bart_lorma_even_mean_bce` (**inferred**; leaderboard entry) | bart (v2, encoder) | LoRMA `plus` r=8 on q/v, even chunks ×8, mean/mean pooling, BCE, threshold 0.5; 0.224M of 68.2M trainable; best dev at step 10688 | **0.1651** | finished |
 
 1016048 is attributed to BART LoRMA because it is the only Phase-5 run folder without an ID; 1016033 may be an earlier
-upload of the same file. TODO(student): confirm.
+upload of the same file. Confirmed by the student.
 
 ## 11. How to run
 
